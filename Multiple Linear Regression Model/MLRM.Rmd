@@ -1,0 +1,243 @@
+---
+title: "EXAMEN ARGUMENTATIVO"
+author: "Emmanuel Naranjo"
+date: "2023-12-01"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# I. Introducción
+En este reporte argumentativo se presentan los modelos de regresión lineal con fines de predicción, cuyo objetivo es
+
+evaluar el rendimiento del modelo en un conjunto de validación y utilizar las métricas de predicción. 
+
+A continuación, se describirán los algoritmos para la selección de variables independientes que se aplicarán en el procedimiento de regresión lineal múltiple (MLR). 
+
+Inicialmente se realizará el análisis EDA, con el objetivo de examinar y comprender la estructura, patrones y características fundamentales de un conjunto de datos.
+
+Seguidamente se determinará si es necesario o no el proceso de imputación de datos con el objetivo de preparar los datos para el análisis MLR y que se obtenga la mejor estimación posible.
+
+Por último, se empleará la etapa de modelado MLR. En otras palabras utilizaremos un dataset cuyo nombre es "city" de 50 instancias para 7 atributos de tipo numérico "X1", "X2", "X3", "X4", "X5", "X6" y "X7"; cuya descripción se muestra a continuación:
+
+•   X1 = 'total overall reported crime rate per 1 million
+residents
+
+•   X2 = "reported violent crime rate per 100,000 residents"
+
+•   X3 = "'"annual police funding in S/resident"
+
+•   X4 ="*"% of people 25 yearst with 4 yrs. of high school"
+
+•   X5 ="% of 16-to-19-year-old not in high school and not high school graduates"
+
+•   X6 = "% of 18-24-year-old in college"
+
+•   X7 ="% of people 25 years+ with at least 4 years of college"
+
+
+# II. Exploración de Datos
+
+## i. Importación de Librerías y Dataset
+Inicialmente se instalan los siguientes paquetes y se procede con cargar la base de datos.
+
+```{r}
+library("statsr")
+library("skimr")
+library("forecast")
+library("ggplot2")
+library("dplyr")
+library("broom")
+library("ggpubr")
+library("gvlma")
+library("readxl")
+library("caret")
+library("tidyverse")
+library("pillar")
+library("psych")
+library("readr")
+library("GGally")
+library("corrplot")
+library("reshape2")
+library("gmodels")
+library("mice")
+```
+```{r}
+data <- read.csv("city.csv",sep=";")
+View(data)
+```
+
+## ii. Visualización de los Atributos y sus Datos
+Iniciaremos con la exploración de datos inicial, la cual permitirá revisar los tipos atributos, la existencia o no de missing data, los percentiles, la distribución de los datos; entre otros.
+
+La función dim proporciona las dimensiones del dataframe, es decir, el número de instancias y atributos. Este es un paso básico pero crucial para entender la dimensión del conjunto de datos. De la cual se obtiene que estamos trabajando con una estructura de 50 instancias y 7 atributos.
+
+```{r}
+dim(data)
+```
+
+La función skim proporciona rápidamente una visión general del marco de los datos. En este caso, nos muestra que el número de valores que faltan es cero, así como las características estadísticas básicas.
+
+Es por esta razón que para efectos del presente análisis no se empleará imputación de datos.
+
+```{r}
+skim(data)
+```
+Una representación de cómo los datos interactúan entre sí es mediante la matriz de correlación.
+
+Esto permitirá evaluar las relaciones lineales, analizar la multicolinearidad y seleccionar los predictores para la variable de salida.
+
+Visualmente esto es, entre mayor el diámetro del círculo mostrado en la gráfica, mayor es la correlacion entre las variables. O bien, en la tabla de correlación: 1 indica una correlación positiva perfecta, -1 indica una correlación negativa perfecta, 0 indica falta de correlación lineal.
+
+```{r}
+cor.matrix=cor(data)
+corrplot(cor.matrix)
+```
+
+```{r}
+view(cor.matrix)
+```
+
+*Como resultados se tiene lo siguiente:*
+
+Fuerte correlación positiva:
+
+•   X1 y X2
+•   X4 y X7
+
+Fuerte correlación negativa:
+
+•   X4 y X5
+•   X5 con X4 y X6
+
+Multicolinealidad:
+
+•   Algunas variables, como X4 y X7, tienen una alta correlación, lo que podría indicar multicolinealidad. En la práctica, esto podría afectar la interpretación de un modelo de regresión.
+
+## What factors influence the total overall reporte crime rate per 1 million residents?
+Para responder a esta pregunta, examinaremos las correlaciones entre la variable de interés (X1) con respecto a las demás variables explicativas (X2 a X7):
+
+La correlación más fuerte positiva con X1 es con X2: "reported violent crime rate per 100,000 residents" con un valor de 0.76. Esto sugiere que a medida que la tasa de criminalidad violenta reportada aumenta, la tasa total de criminalidad también tiende a aumentar.
+
+La variable X3 "annual police funding in S/resident" muestra una correlación positiva moderada con X1 de 0.53. Esto indircaría que a medida que aumenta el financiamiento policial por residente, la tasa total de criminalidad tiende a aumentar.
+
+La correlación positiva moderada de X1 con X5: "% of 16-to-19-year-old not in high school and not high school graduates", sugiere que entre el porcentaje de personas de 16 a 19 años que no están en la escuela y no han completado la escuela secundaria aumenta, la tasa total general de criminalidad aumenta.
+
+Además, X4: "% of people 25 years with 4 years of high school", X6:"% of 18-24-year-old in college", y  X7: "% of people 25 years+ with at least 4 years of college", tienen correlaciones con X1 negativas (aunque casi insignificativa), lo que sugiere una relación inversa entre la tasa de criminalidad y el número de personas con niveles de educación.
+
+
+De este modo, basándonos en las correlaciones observadas con este dataset, podemos concluir que los factores X2, X3, X5 pueden influir proporcionalmente en X1.
+
+# III. Construcción del Modelo de Regresión Lineal Múltiple
+
+Una vez analizado qué miden los distintos predictores y por qué son relevantes para predecir la variable de salida, procederemos con la propuesta de una ecuación de regresión lineal múltiple para predecir el valor de X1.
+
+Definimos la hipótesis de regresión lineal múltiple para la variable dependiente Y=X1 de la siguiente manera:
+
+•   Y = β0 + β1x1 + β2x2 + ··· + βpxp + ϵ
+
+donde β0,..., βp son coeficientes y ϵ es el ruido o parte no explicada.
+
+
+A continuación se presenta la ecuación MLR para X1 con su respectivo análisis estadístico.
+
+## i. X1 en función de todas las variables predictoras
+En un primer acercamiento a encontrar nuestro mejor MLR, seleccionaremos todas las variables predictoras.
+
+```{r}
+modelo_lineal_1 <- lm(X1 ~ ., data = data)
+
+# Resumen del modelo
+options(scipen = 999)
+summary(modelo_lineal_1)
+```
+
+## ii. X1 en función de las variables predictoras X2, X3 y X5
+En un segundo acercamiento a encontrar nuestro mejor MLR, seleccionaremos las variables X2, X3 y X5, basándonos en las correlaciones observadas anteriormente, ya que pueden proporcionar información valiosa para predecir la variable X1 en un modelo de regresión lineal múltiple.
+
+```{r}
+modelo_lineal_2 <- lm(X1 ~ X2 + X3 + X5, data = data)
+
+# Resumen del modelo
+options(scipen = 999)
+summary(modelo_lineal_2)
+```
+
+## iii. X1 en función de las variable predictora X2 y X3
+En un tercer acercamiento a encontrar nuestro mejor MLR, seleccionaremos las variables X2 y X3 ya que presentan la mayor correlación con X1.
+
+```{r}
+modelo_lineal_3 <- lm(X1 ~ X2 + X3, data = data)
+
+# Resumen del modelo
+options(scipen = 999)
+summary(modelo_lineal_3)
+```
+Basándonos en el valor de R cuadrado ajustado, tomaremos como nuesto modelo aquel que utiliza X2 y X3 para encontrar X1, y en base a este haremos el análisis estadístico. Es decir, no es necesario tomar todas las variables como predictoras. 
+
+## iv. Seleccionar el Modelo Lineal
+El R cuadrado ajustado proporciona una medida de la calidad del modelo ajustado teniendo en cuenta el número de variables en el modelo. Un valor más alto indica un mejor ajuste, razón por la cual escogemos como mejor MLR nuestra opción (iii), ya que brinda un valor de R cuadrado ajustado igual a 0.5848857. 
+
+```{r}
+
+# Obtener el R cuadrado ajustado
+r_cuadrado_ajustado_1 <- summary(modelo_lineal_1)$adj.r.squared
+r_cuadrado_ajustado_2 <- summary(modelo_lineal_2)$adj.r.squared
+r_cuadrado_ajustado_3 <- summary(modelo_lineal_3)$adj.r.squared
+
+# Imprimir el resultado
+cat("El R cuadrado ajustado para el modelo (i) es:", r_cuadrado_ajustado_1, "\n\n")
+cat("El R cuadrado ajustado para el modelo (ii) es:", r_cuadrado_ajustado_2, "\n\n")
+cat("El R cuadrado ajustado para el modelo (iii) es:", r_cuadrado_ajustado_3, "\n\n")
+```
+
+## iv. Evaluar el Modelo Lineal 
+Se establece un escenario de entrenamiento y validación para evaluar un modelo lineal. El conjunto de entrenamiento se crea seleccionando aleatoriamente el 60% de los índices entre 1 y 50, y el conjunto de validación se forma excluyendo las filas correspondientes al conjunto de entrenamiento. 
+
+### Training
+```{r}
+# Establecer una semilla para reproducibilidad
+set.seed(1)
+
+# Seleccionar aleatoriamente el 60% de los índices entre 1 y 50
+train.index <- sample(1:50, 0.6 * 50)
+
+# Crear el conjunto de entrenamiento (train.df) seleccionando las filas correspondientes a los índices seleccionados
+
+train.df <- data[train.index, c("X1","X2", "X3")]
+
+# Crear el conjunto de validación
+valid.df <- data[-train.index, c("X1","X2", "X3")]
+```
+
+### Testing
+La función predict se utiliza para generar predicciones del modelo lineal (modelo_lineal_3) utilizando el conjunto de validación (valid.df). Las predicciones se almacenan en la variable x1.lm.pred.
+
+Por su parte, los residuales representan la diferencia entre los valores observados y los valores predichos por el modelo. Se crea un data frame que contiene tres columnas: "Predicted" con las predicciones, "Actual" con los valores reales y "Residual" con los residuales; los cuales son el 40% de los datos de testing.
+
+```{r}
+x1.lm.pred <- predict(modelo_lineal_3, valid.df)
+
+options(scipen = 999)
+
+some.residuals <- valid.df$X1[1:20]-x1.lm.pred[1:20]
+
+data.frame("Predicted" = x1.lm.pred[1:20], "\nActual" = valid.df$X1[1:20], "\nResidual" = some.residuals)
+```
+### Analizar Veracidad del Modelo
+Ahora se medirán las métricas de precisión entre las predicciones del modelo. En general, valores más bajos en estas métricas indican un mejor rendimiento del modelo. Esto nos indica, especialmente basándonos en el RMSE, que tenemos un modelo que relativamente explica el comportamiento de X1; no obstante requiere de mayor precisión.
+
+```{r}
+accuracy(x1.lm.pred, valid.df$X1)
+```
+# IV. Conclusiones
+
+En el presente reporte se analizó un dataset, en el cual, basándonos en las correlaciones observadas con este dataset, podemos concluir que factores como la tasa de criminalidad violenta reportada (X2) y ciertos niveles educativos (X4 y X7) pueden influir en la tasa total general de criminalidad reportada por cada millón de residentes.
+Por su parte, empleando el método de las estimaciones por mínimos cuadrados, y MLR se obtuvo que:
+X1 = 350.8865 + 0.3355 x2 + 4.2470 x3 + ϵ
+Donde, el R cuadrado ajustado para el modelo (iii) es: 0.5848857 y el valor de RMSE es de: 194.8141
+Se evaluaron varios modelos de regresión lineal múltiple, y el R cuadrado ajustado se utilizó como indicador de ajuste del modelo a los datos. El modelo (iii) presentó el R cuadrado ajustado más alto, indicando que explica una mayor proporción de la variabilidad en los datos en comparación con los modelos (i) y (ii). 
+El valor de RMSE proporciona una medida de la dispersión de las predicciones, con un valor de 194.8141 en este caso. Un R cuadrado ajustado más alto sugiere un mejor ajuste del modelo a los datos. En este caso, el modelo (iii) tiene el R cuadrado ajustado más alto, seguido por el modelo (ii) y luego el modelo (i).
+Es por esta razón que seleccionamos las variables X2 y X3 ya que presentan la mayor correlación con X1, 0.75650513 y 0.5331978 respectivamente. Estas variables fueron elegidas debido a sus altas correlaciones con la variable de salida X1.
+
